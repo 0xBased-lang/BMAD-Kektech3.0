@@ -1,0 +1,27 @@
+{
+  "name": "bmad-kektech3.0",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "test:unit": "hardhat test test/unit/**/*.test.js",
+    "test:security": "hardhat test test/unit/04-prediction-market-security-fixes.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@openzeppelin/contracts-upgradeable": "^5.4.0",
+    "chai": "^4.5.0",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.26.3"
+  }
+}
