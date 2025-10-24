@@ -71,10 +71,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
   describe("Zero Amount Edge Cases", function () {
     it("should reject zero amount bets", async function () {
       // Create market first
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -93,10 +94,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     });
 
     it("should handle zero total bets gracefully", async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -106,8 +108,9 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       const marketAddress = receipt.logs[0].address;
       market = await ethers.getContractAt("PredictionMarket", marketAddress);
 
-      // Fast forward past betting period
-      await time.increase(86401);
+      // Fast forward to resolution time
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
 
       // Try to propose resolution with zero bets
       await market.connect(deployer).proposeResolution(0);
@@ -185,10 +188,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
   describe("Access Control Vulnerabilities", function () {
     beforeEach(async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -238,10 +242,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
   describe("State Manipulation Prevention", function () {
     beforeEach(async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -256,7 +261,8 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     });
 
     it("should prevent betting after market ends", async function () {
-      await time.increase(86401);
+      const endTime = await market.endTime();
+      await time.increaseTo(endTime + BigInt(1));
 
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
@@ -275,8 +281,12 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
       await market.connect(victim).placeBet(1, ethers.parseEther("100"));
 
-      await time.increase(86401);
+      // Wait until resolutionTime to propose
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
+
+      // Wait for finalization delay (PROPOSAL_DELAY = 48 hours)
       await time.increase(172800);
       await market.finalizeResolution();
 
@@ -294,7 +304,9 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     it("should prevent resolution manipulation by changing outcome", async function () {
       await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
 
-      await time.increase(86401);
+      // Wait until resolutionTime to propose
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
 
       // Try to change resolution before finalization
@@ -318,10 +330,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     });
 
     it("should handle minimum volume to prevent manipulation", async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -336,8 +349,12 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       // Place tiny bet
       await market.connect(attacker).placeBet(0, ethers.parseEther("1"));
 
-      await time.increase(86401);
+      // Wait until resolutionTime to propose
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
+
+      // Wait for finalization delay (PROPOSAL_DELAY = 48 hours)
       await time.increase(172800);
       await market.finalizeResolution();
 
@@ -354,10 +371,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
   describe("Timing Attack Prevention", function () {
     beforeEach(async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -376,7 +394,8 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       ).to.not.be.reverted;
 
       // After end - should fail
-      await time.increase(86401);
+      const endTime = await market.endTime();
+      await time.increaseTo(endTime + BigInt(1));
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.be.reverted;
@@ -386,13 +405,14 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await basedToken.connect(attacker).approve(await market.getAddress(), ethers.MaxUint256);
       await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
 
-      // Try to resolve before betting ends
+      // Try to resolve before resolutionTime
       await expect(
         market.connect(deployer).proposeResolution(0)
       ).to.be.reverted;
 
-      // After betting ends - should work
-      await time.increase(86401);
+      // After resolutionTime - should work
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await expect(
         market.connect(deployer).proposeResolution(0)
       ).to.not.be.reverted;
@@ -402,7 +422,8 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await basedToken.connect(attacker).approve(await market.getAddress(), ethers.MaxUint256);
       await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
 
-      await time.increase(86401);
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
 
       // Try to finalize immediately - should fail
@@ -410,7 +431,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
         market.finalizeResolution()
       ).to.be.reverted;
 
-      // After delay - should work
+      // After proposal delay (172800 seconds = 48 hours) - should work
       await time.increase(172800);
       await expect(
         market.finalizeResolution()
@@ -424,10 +445,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
   describe("Precision Loss Prevention (Fix #2)", function () {
     beforeEach(async function () {
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -449,7 +471,8 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       const tinyBet = ethers.parseEther("0.001");
       await market.connect(attacker).placeBet(0, tinyBet);
 
-      await time.increase(86401);
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
       await market.finalizeResolution();
@@ -470,7 +493,8 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       // Tiny bet
       await market.connect(attacker).placeBet(0, ethers.parseEther("1"));
 
-      await time.increase(86401);
+      const resolutionTime = await market.resolutionTime();
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
       await market.finalizeResolution();
@@ -529,10 +553,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       ).to.not.be.reverted;
 
       // Should prevent market creation when paused
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -547,10 +572,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await factory.connect(deployer).unpause();
 
       // Should allow market creation after unpause
+      const currentTime = await time.latest();
       const marketParams = {
         question: "Test?",
-        endTime: Math.floor(Date.now() / 1000) + 86400,
-        resolutionTime: Math.floor(Date.now() / 1000) + 172800,
+        endTime: currentTime + 86400,
+        resolutionTime: currentTime + 172800,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -568,10 +594,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
   describe("Boundary Conditions", function () {
     it("should handle market at exact end time", async function () {
       const currentTime = await time.latest();
+      const endTime = Number(currentTime) + 1000;
       const marketParams = {
         question: "Test?",
-        endTime: currentTime + 1000,
-        resolutionTime: currentTime + 2000,
+        endTime: endTime,
+        resolutionTime: endTime + 1000,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -584,13 +611,13 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await basedToken.connect(attacker).approve(marketAddress, ethers.MaxUint256);
 
       // Should work just before end time
-      await time.increaseTo(currentTime + 999);
+      await time.increaseTo(endTime - 1);
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.not.be.reverted;
 
-      // Should fail at or after end time
-      await time.increaseTo(currentTime + 1000);
+      // Should fail after end time
+      await time.increase(2); // Move past endTime
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.be.reverted;
@@ -598,10 +625,12 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
     it("should handle resolution at exact resolution time", async function () {
       const currentTime = await time.latest();
+      const endTime = Number(currentTime) + 1000;
+      const resolutionTime = endTime + 1000;
       const marketParams = {
         question: "Test?",
-        endTime: currentTime + 1000,
-        resolutionTime: currentTime + 2000,
+        endTime: endTime,
+        resolutionTime: resolutionTime,
         resolver: deployer.address,
         outcomes: ["Yes", "No"],
       };
@@ -614,11 +643,11 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await basedToken.connect(attacker).approve(marketAddress, ethers.MaxUint256);
       await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
 
-      await time.increaseTo(currentTime + 1001);
+      await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
 
-      // Should work at exact resolution time
-      await time.increaseTo(currentTime + 2000);
+      // Should work after proposal delay (172800 seconds = 48 hours)
+      await time.increase(172800);
       await expect(
         market.finalizeResolution()
       ).to.not.be.reverted;
