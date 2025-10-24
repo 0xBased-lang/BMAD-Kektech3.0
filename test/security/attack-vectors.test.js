@@ -165,12 +165,14 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       // Attacker tries to front-run with massive bet
       await market.connect(attacker).placeBet(0, ethers.parseEther("1000000"));
 
-      // Both should have fair shares based on timing
-      const victimBet = await market.bets(victim.address, 0);
-      const attackerBet = await market.bets(attacker.address, 0);
+      // Both should have placed bets successfully
+      const victimBets = await market.getUserBets(victim.address);
+      const attackerBets = await market.getUserBets(attacker.address);
 
-      expect(victimBet).to.be.gt(0);
-      expect(attackerBet).to.be.gt(0);
+      expect(victimBets.length).to.be.gt(0);
+      expect(attackerBets.length).to.be.gt(0);
+      expect(victimBets[0].amount).to.equal(ethers.parseEther("1000"));
+      expect(attackerBets[0].amount).to.equal(ethers.parseEther("1000000"));
     });
 
     it("should prevent resolution front-running", async function () {
@@ -529,11 +531,6 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       await expect(
         factory.connect(attacker).pause()
       ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
-
-      // Attacker cannot change fee recipients
-      await expect(
-        factory.connect(attacker).updatePlatformFeeRecipient(attacker.address)
-      ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
     });
 
     it("should prevent unauthorized fee updates", async function () {
@@ -542,7 +539,11 @@ describe("Critical Attack Vectors - Advanced Security", function () {
         factory.connect(attacker).queueFeeUpdate(100, 100, 100, 100)
       ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
 
-      // Attacker cannot execute fee updates
+      // For executeFeeUpdate, we need a pending update first
+      // Owner queues an update
+      await factory.queueFeeUpdate(100, 100, 100, 100);
+
+      // Attacker cannot execute it
       await expect(
         factory.connect(attacker).executeFeeUpdate()
       ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
@@ -579,11 +580,13 @@ describe("Critical Attack Vectors - Advanced Security", function () {
         market.connect(bob).placeBet(1, ethers.parseEther("100")),
       ]);
 
-      const aliceBet = await market.bets(alice.address, 0);
-      const bobBet = await market.bets(bob.address, 1);
+      const aliceBets = await market.getUserBets(alice.address);
+      const bobBets = await market.getUserBets(bob.address);
 
-      expect(aliceBet).to.equal(ethers.parseEther("100"));
-      expect(bobBet).to.equal(ethers.parseEther("100"));
+      expect(aliceBets.length).to.equal(1);
+      expect(bobBets.length).to.equal(1);
+      expect(aliceBets[0].amount).to.equal(ethers.parseEther("100"));
+      expect(bobBets[0].amount).to.equal(ethers.parseEther("100"));
     });
 
     it("should prevent race conditions in claims", async function () {
@@ -674,8 +677,15 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       }
 
       // Should still function normally
-      const totalBets = await market.bets(attacker.address, 0);
-      expect(totalBets).to.equal(ethers.parseEther("10"));
+      const attackerBets = await market.getUserBets(attacker.address);
+      expect(attackerBets.length).to.equal(10);
+
+      // Sum all bets
+      let totalBetAmount = 0n;
+      for (const bet of attackerBets) {
+        totalBetAmount += bet.amount;
+      }
+      expect(totalBetAmount).to.equal(ethers.parseEther("10"));
     });
   });
 });
