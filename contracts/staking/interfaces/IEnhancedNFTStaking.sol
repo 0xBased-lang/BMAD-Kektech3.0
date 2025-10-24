@@ -173,6 +173,12 @@ interface IEnhancedNFTStaking {
     function getVotingPower(address user) external view returns (uint256 totalPower);
 
     /**
+     * @notice Get total voting power across all stakers
+     * @return totalPower Total voting power system-wide
+     */
+    function getTotalVotingPower() external view returns (uint256 totalPower);
+
+    /**
      * @notice Get all staked tokens for an address
      * @param user Address to query
      * @return tokenIds Array of staked token IDs

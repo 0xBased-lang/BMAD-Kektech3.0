@@ -56,6 +56,9 @@ contract EnhancedNFTStaking is
     /// @notice Mapping from user address to cached voting power
     mapping(address => uint256) private _userVotingPower;
 
+    /// @notice Total voting power across all stakers
+    uint256 private _totalVotingPower;
+
     /// @notice Rarity distribution counters
     uint256 private _commonCount;
     uint256 private _uncommonCount;
@@ -333,6 +336,14 @@ contract EnhancedNFTStaking is
     }
 
     /**
+     * @notice Get total voting power across all stakers
+     * @return totalPower Total voting power system-wide
+     */
+    function getTotalVotingPower() external view returns (uint256) {
+        return _totalVotingPower;
+    }
+
+    /**
      * @notice Update cached voting power for a user
      * @param user User address
      * @dev Called after stake/unstake operations
@@ -345,6 +356,10 @@ contract EnhancedNFTStaking is
             StakeInfo storage stakeInfo = _stakes[stakedTokens[i]];
             totalPower += stakeInfo.votingPower;
         }
+
+        // Update total voting power (subtract old, add new)
+        uint256 oldPower = _userVotingPower[user];
+        _totalVotingPower = _totalVotingPower - oldPower + totalPower;
 
         _userVotingPower[user] = totalPower;
 

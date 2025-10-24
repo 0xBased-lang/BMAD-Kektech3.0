@@ -454,7 +454,12 @@ describe("Epic 6: Governance System (Fix #7)", function () {
 
       const balanceBefore = await basedToken.balanceOf(alice.address);
 
-      await governance.finalizeProposal(0);
+      const tx = await governance.finalizeProposal(0);
+
+      // Should emit BondRefunded event
+      await expect(tx)
+        .to.emit(governance, "BondRefunded")
+        .withArgs(0, alice.address, PROPOSAL_BOND);
 
       const proposal = await governance.getProposal(0);
       expect(proposal.state).to.equal(2); // REJECTED
@@ -598,6 +603,11 @@ describe("Epic 6: Governance System (Fix #7)", function () {
       await governance.connect(alice).createProposal("Q1", "D1", "C1");
       expect(await governance.proposalCount()).to.equal(1);
 
+      // Finalize first proposal to release bond
+      await time.increase(VOTING_PERIOD + 1);
+      await governance.finalizeProposal(0);
+
+      // Now create second proposal
       await time.increase(PROPOSAL_COOLDOWN + 1);
       await governance.connect(alice).createProposal("Q2", "D2", "C2");
       expect(await governance.proposalCount()).to.equal(2);

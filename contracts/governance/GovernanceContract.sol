@@ -292,9 +292,9 @@ contract GovernanceContract is IGovernance, Ownable {
 
         Proposal storage proposal = proposals[proposalId];
 
-        // Validate execution conditions
-        require(proposal.state == ProposalState.APPROVED, "Governance: Not approved");
+        // Validate execution conditions (check executed first!)
         require(!proposal.executed, "Governance: Already executed");
+        require(proposal.state == ProposalState.APPROVED, "Governance: Not approved");
 
         // Mark as executed
         proposal.executed = true;
@@ -418,11 +418,8 @@ contract GovernanceContract is IGovernance, Ownable {
      * @return totalPower The total voting power
      */
     function getTotalVotingPower() public view returns (uint256) {
-        // This is a simplified implementation
-        // In production, you might want to cache this or implement more efficiently
-        // For now, we'll return a placeholder
-        // Real implementation would query all stakers from the staking contract
-        return 1000; // Placeholder
+        // Query actual total voting power from staking contract
+        return stakingContract.getTotalVotingPower();
     }
 
     /*//////////////////////////////////////////////////////////////
