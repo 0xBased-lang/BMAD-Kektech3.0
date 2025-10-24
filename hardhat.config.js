@@ -17,6 +17,12 @@ module.exports = {
     hardhat: {
       // Local Hardhat network for testing
     },
+    // Sepolia Testnet (for Week 1 validation)
+    sepolia: {
+      url: process.env.SEPOLIA_RPC || "https://rpc.sepolia.org",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 11155111
+    },
     basedTestnet: {
       url: process.env.BASED_TESTNET_RPC || "",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
