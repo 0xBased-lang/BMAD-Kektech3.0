@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./interfaces/IEnhancedNFTStaking.sol";
 
@@ -25,10 +24,9 @@ import "./interfaces/IEnhancedNFTStaking.sol";
  * - TOTAL SAVINGS: ~197,000,000 gas (~$10,000+ at typical gas prices)
  */
 contract EnhancedNFTStaking is
-    UUPSUpgradeable,
-    ReentrancyGuardUpgradeable,
-    PausableUpgradeable,
-    OwnableUpgradeable,
+    ReentrancyGuard,
+    Pausable,
+    Ownable,
     IEnhancedNFTStaking
 {
     // ============================================
@@ -67,26 +65,17 @@ contract EnhancedNFTStaking is
     uint256 private _legendaryCount;
 
     // ============================================
-    // CONSTRUCTOR & INITIALIZER
+    // CONSTRUCTOR
     // ============================================
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
 
     /**
      * @notice Initialize the staking contract
      * @param _nftContract Address of the Kektech NFT contract
+     * @dev No proxy pattern - simple constructor for easy upgrades via migration
+     *      Users can unstake from V1 and restake in V2 if needed (standard practice)
      */
-    function initialize(address _nftContract) public initializer {
+    constructor(address _nftContract) Ownable(msg.sender) {
         require(_nftContract != address(0), "Invalid NFT contract");
-
-        __UUPSUpgradeable_init();
-        __ReentrancyGuard_init();
-        __Pausable_init();
-        __Ownable_init(msg.sender);
-
         nftContract = IERC721(_nftContract);
     }
 
@@ -473,10 +462,11 @@ contract EnhancedNFTStaking is
         _unpause();
     }
 
-    /**
-     * @notice Authorize contract upgrade
-     * @param newImplementation Address of new implementation
-     * @dev Only owner can upgrade (UUPS pattern)
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    // ============================================
+    // NOTE: No proxy pattern!
+    // ============================================
+    // This contract does NOT use proxy pattern for simplicity and security.
+    // Upgrades are done via migration: users unstake from V1, stake in V2.
+    // This is standard practice in DeFi (e.g., SushiSwap MasterChef).
 }
+

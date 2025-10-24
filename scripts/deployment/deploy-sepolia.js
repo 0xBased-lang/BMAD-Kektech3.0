@@ -228,18 +228,15 @@ async function main() {
   logSection("STEP 1: Deploying Mock BASED Token");
   log("Note: This is a test token for Sepolia only");
 
-  const basedToken = await deployContract("MockERC20", ["Based Token", "BASED"], deployer);
+  const basedToken = await deployContract("MockERC20", ["Based Token", "BASED", config.mockBasedSupply], deployer);
 
-  // Mint initial supply
-  log("Minting initial test supply...");
-  const mintTx = await basedToken.mint(deployer.address, config.mockBasedSupply);
-  await mintTx.wait();
-  log(`Minted ${hre.ethers.formatEther(config.mockBasedSupply)} BASED tokens`, "success");
+  // Initial supply minted in constructor
+  log(`Minted ${hre.ethers.formatEther(config.mockBasedSupply)} BASED tokens in constructor`, "success");
 
   // Verify
   if (config.verifyContracts) {
     await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30s for Etherscan
-    await verifyContract(await basedToken.getAddress(), ["Based Token", "BASED"]);
+    await verifyContract(await basedToken.getAddress(), ["Based Token", "BASED", config.mockBasedSupply]);
   }
 
   // ============================================================
