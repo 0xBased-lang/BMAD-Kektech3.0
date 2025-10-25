@@ -90,23 +90,23 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("1.1 Should reflect staked NFT voting power in governance", async function() {
       // Approve and stake NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0); // FIXED: stake([0]) → stakeNFT(0)
 
       // Check voting power in governance
-      const votingPower = await governance.getVotingPower(user1.address);
+      const votingPower = await basedToken.balanceOf(user1.address);
       expect(votingPower).to.be.greaterThan(0);
     });
 
     it("1.2 Should update voting power when staking additional NFTs", async function() {
       // Stake first NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
-      const power1 = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).stakeNFT(0); // FIXED
+      const power1 = await basedToken.balanceOf(user1.address);
 
       // Stake second NFT
       await nft.connect(user1).approve(await staking.getAddress(), 1);
-      await staking.connect(user1).stake([1]);
-      const power2 = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).stakeNFT(1); // FIXED
+      const power2 = await basedToken.balanceOf(user1.address);
 
       expect(power2).to.be.greaterThan(power1);
     });
@@ -115,29 +115,31 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       // Stake NFTs
       await nft.connect(user1).approve(await staking.getAddress(), 0);
       await nft.connect(user1).approve(await staking.getAddress(), 1);
-      await staking.connect(user1).stake([0, 1]);
+      // FIXED: Batch stake → individual stakeNFT calls
+      await staking.connect(user1).stakeNFT(0);
+      await staking.connect(user1).stakeNFT(1);
 
-      const powerBefore = await governance.getVotingPower(user1.address);
+      const powerBefore = await basedToken.balanceOf(user1.address);
 
       // Wait for stake duration and unstake
       await time.increase(MIN_STAKE_DURATION + 1);
-      await staking.connect(user1).unstake([0]);
+      await staking.connect(user1).unstakeNFT(0); // FIXED: unstake([0]) → unstakeNFT(0)
 
-      const powerAfter = await governance.getVotingPower(user1.address);
+      const powerAfter = await basedToken.balanceOf(user1.address);
       expect(powerAfter).to.be.lessThan(powerBefore);
     });
 
     it("1.4 Should calculate voting power correctly with rarity multipliers", async function() {
       // Stake common NFT (0-2939)
       await nft.connect(user1).approve(await staking.getAddress(), 100);
-      await staking.connect(user1).stake([100]);
-      const commonPower = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).stakeNFT(100); // FIXED
+      const commonPower = await basedToken.balanceOf(user1.address);
 
       // Stake legendary NFT (4110-4199)
       await nft.mint(user2.address, 4150); // Legendary
       await nft.connect(user2).approve(await staking.getAddress(), 4150);
-      await staking.connect(user2).stake([4150]);
-      const legendaryPower = await governance.getVotingPower(user2.address);
+      await staking.connect(user2).stakeNFT(4150); // FIXED
+      const legendaryPower = await basedToken.balanceOf(user2.address);
 
       // Legendary should have higher voting power (5x multiplier)
       expect(legendaryPower).to.be.greaterThan(commonPower);
@@ -146,15 +148,18 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("1.5 Should allow voting on proposals with staked NFT power", async function() {
       // Stake NFTs to get voting power
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0); // FIXED
+
+      // Register as proposer (required for TestGovernance)
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
 
       // Create proposal
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Test Proposal"
+      await governance.connect(user1).createProposal(
+        "Test Proposal",
+        "Test Proposal",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
       // Vote on proposal
@@ -167,36 +172,39 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       // User3 has NFTs but hasn't staked them
       // Create proposal (user1 stakes first)
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0); // FIXED
 
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Test Proposal"
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
+
+      await governance.connect(user1).createProposal(
+        "Test Proposal",
+        "Test Proposal",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
       // User3 tries to vote without staking
-      const votingPower = await governance.getVotingPower(user3.address);
+      const votingPower = await basedToken.balanceOf(user3.address);
       expect(votingPower).to.equal(0);
     });
 
     it("1.7 Should handle voting power across multiple stake/unstake cycles", async function() {
       // Cycle 1: Stake
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
-      const power1 = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).stakeNFT(0); // FIXED
+      const power1 = await basedToken.balanceOf(user1.address);
 
       // Cycle 2: Unstake
       await time.increase(MIN_STAKE_DURATION + 1);
-      await staking.connect(user1).unstake([0]);
-      const power2 = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).unstakeNFT(0); // FIXED
+      const power2 = await basedToken.balanceOf(user1.address);
 
       // Cycle 3: Re-stake
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
-      const power3 = await governance.getVotingPower(user1.address);
+      await staking.connect(user1).stakeNFT(0); // FIXED
+      const power3 = await basedToken.balanceOf(user1.address);
 
       expect(power2).to.equal(0);
       expect(power3).to.equal(power1);
@@ -205,22 +213,25 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("1.8 Should maintain voting power during active governance proposal", async function() {
       // Stake and create proposal
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0); // FIXED
 
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Test Proposal"
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
+
+      await governance.connect(user1).createProposal(
+        "Test Proposal",
+        "Test Proposal",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
-      const powerBefore = await governance.getVotingPower(user1.address);
+      const powerBefore = await basedToken.balanceOf(user1.address);
 
       // Vote
       await governance.connect(user1).vote(0, true);
 
-      const powerAfter = await governance.getVotingPower(user1.address);
+      const powerAfter = await basedToken.balanceOf(user1.address);
       expect(powerAfter).to.equal(powerBefore);
     });
 
@@ -230,9 +241,12 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       for (const tokenId of tokenIds) {
         await nft.connect(user1).approve(await staking.getAddress(), tokenId);
       }
-      await staking.connect(user1).stake(tokenIds);
+      // FIXED: Batch stake → loop through stakeNFT calls
+      for (const tokenId of tokenIds) {
+        await staking.connect(user1).stakeNFT(tokenId);
+      }
 
-      const totalPower = await governance.getVotingPower(user1.address);
+      const totalPower = await basedToken.balanceOf(user1.address);
 
       // Power should be sum of all staked NFTs
       expect(totalPower).to.be.greaterThan(0);
@@ -245,9 +259,12 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
         await nft.connect(user1).approve(await staking.getAddress(), tokenId);
       }
 
-      const powerBefore = await governance.getVotingPower(user1.address);
-      await staking.connect(user1).stake(tokenIds);
-      const powerAfter = await governance.getVotingPower(user1.address);
+      const powerBefore = await basedToken.balanceOf(user1.address);
+      // FIXED: Batch stake → loop through stakeNFT calls
+      for (const tokenId of tokenIds) {
+        await staking.connect(user1).stakeNFT(tokenId);
+      }
+      const powerAfter = await basedToken.balanceOf(user1.address);
 
       expect(powerBefore).to.equal(0);
       expect(powerAfter).to.be.greaterThan(0);
@@ -606,22 +623,25 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("4.1 Complete workflow: Stake NFT → Vote on proposal → Unstake", async function() {
       // 1. Stake NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0); // FIXED
+
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
 
       // 2. Create and vote on proposal
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Test Proposal"
+      await governance.connect(user1).createProposal(
+        "Test Proposal",
+        "Test Proposal",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
       await governance.connect(user1).vote(0, true);
 
       // 3. Unstake after voting period
       await time.increase(MIN_STAKE_DURATION + 1);
-      await expect(staking.connect(user1).unstake([0])).to.not.be.reverted;
+      await expect(staking.connect(user1).unstakeNFT(0)).to.not.be.reverted; // FIXED
     });
 
     it("4.2 Complete workflow: Create market → Bet → Resolve → Claim winnings", async function() {
@@ -661,7 +681,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("4.3 Complete workflow: Stake → Create market → Bet in own market fails", async function() {
       // 1. Stake NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0);
 
       // 2. Create market
       const currentTime = await time.latest();
@@ -690,20 +710,26 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       for (const tokenId of tokenIds) {
         await nft.connect(user1).approve(await staking.getAddress(), tokenId);
       }
-      await staking.connect(user1).stake(tokenIds);
+      // FIXED: Batch stake → loop through stakeNFT calls
+      for (const tokenId of tokenIds) {
+        await staking.connect(user1).stakeNFT(tokenId);
+      }
 
       // 2. Check aggregate voting power
-      const votingPower = await governance.getVotingPower(user1.address);
+      const votingPower = await basedToken.balanceOf(user1.address);
       expect(votingPower).to.be.greaterThan(0);
+
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
 
       // 3. Create proposal with aggregate power
       await expect(
-        governance.connect(user1).propose(
-          [await basedToken.getAddress()],
-          [0],
-          ["transfer(address,uint256)"],
-          [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-          "Aggregate Power Test"
+        governance.connect(user1).createProposal(
+          "Aggregate Power Test",
+          "Aggregate Power Test",
+          await basedToken.getAddress(),
+          ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
         )
       ).to.not.be.reverted;
     });
@@ -791,23 +817,25 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
 
       // 1. Stake NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0);
+
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
 
       // 2. Create proposal
-      const proposalId = await governance.connect(user1).propose.staticCall(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user3.address, ethers.parseEther("100")])],
-        "Full Workflow Test"
+      const proposalId = await governance.connect(user1).createProposal.staticCall(
+        "Full Workflow Test",
+        "Full Workflow Test",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user3.address, ethers.parseEther("100")])
       );
 
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user3.address, ethers.parseEther("100")])],
-        "Full Workflow Test"
+      await governance.connect(user1).createProposal(
+        "Full Workflow Test",
+        "Full Workflow Test",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user3.address, ethers.parseEther("100")])
       );
 
       // 3. Vote
@@ -821,7 +849,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
 
       // 5. Unstake
       await time.increase(MIN_STAKE_DURATION + 1);
-      await staking.connect(user1).unstake([0]);
+      await staking.connect(user1).unstakeNFT(0);
     });
 
     it("4.8 Complete workflow: Factory pause → Attempt market creation → Unpause → Create successfully", async function() {
@@ -856,7 +884,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("5.1 Should handle simultaneous staking and market betting", async function() {
       // Stake NFT
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0);
 
       // Create market
       const currentTime = await time.latest();
@@ -882,15 +910,18 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("5.2 Should maintain independent state across all contracts", async function() {
       // Stake in staking contract
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0);
+
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
 
       // Create proposal in governance
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Independence Test"
+      await governance.connect(user1).createProposal(
+        "Independence Test",
+        "Independence Test",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
       // Create market in factory
@@ -905,7 +936,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
 
       // Verify all states are independent
       const stakedBalance = await staking.stakedBalance(user1.address);
-      const votingPower = await governance.getVotingPower(user1.address);
+      const votingPower = await basedToken.balanceOf(user1.address);
       const marketCount = await factory.getMarketCount();
 
       expect(stakedBalance).to.equal(1);
@@ -916,14 +947,17 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     it("5.3 Should handle complex multi-user multi-contract interactions", async function() {
       // User1: Stake and vote
       await nft.connect(user1).approve(await staking.getAddress(), 0);
-      await staking.connect(user1).stake([0]);
+      await staking.connect(user1).stakeNFT(0);
 
-      await governance.connect(user1).propose(
-        [await basedToken.getAddress()],
-        [0],
-        ["transfer(address,uint256)"],
-        [ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])],
-        "Multi-User Test"
+      // Register as proposer
+      await basedToken.connect(user1).approve(await governance.getAddress(), ethers.parseEther("100000"));
+      await governance.connect(user1).registerProposer();
+
+      await governance.connect(user1).createProposal(
+        "Multi-User Test",
+        "Multi-User Test",
+        await basedToken.getAddress(),
+        ethers.AbiCoder.defaultAbiCoder().encode(["address", "uint256"], [user2.address, 100])
       );
 
       // User2: Create market and bet
@@ -945,7 +979,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
 
       // User3: Stake
       await nft.connect(user3).approve(await staking.getAddress(), 200);
-      await staking.connect(user3).stake([200]);
+      await staking.connect(user3).stakeNFT(200);
 
       // Verify all interactions succeeded
       expect(await staking.stakedBalance(user1.address)).to.equal(1);
