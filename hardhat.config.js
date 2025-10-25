@@ -17,6 +17,25 @@ module.exports = {
   networks: {
     hardhat: {
       // Local Hardhat network for testing
+      // Fork configuration (optional, use when running: npx hardhat node --fork <RPC>)
+      forking: process.env.FORK_BASEDAI === "true" ? {
+        url: process.env.BASED_MAINNET_RPC || "https://mainnet.basedaibridge.com/rpc/",
+        enabled: true
+      } : undefined
+    },
+    // Local fork (connects to localhost:8545)
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      chainId: 31337,
+      timeout: 60000,
+      accounts: "remote" // Uses accounts from forked network
+    },
+    // BasedAI mainnet via VPS node (through SSH tunnel)
+    basedai: {
+      url: "http://localhost:9933", // VPS node via SSH tunnel
+      chainId: 32323,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      timeout: 60000
     },
     // Sepolia Testnet (for Week 1 validation)
     sepolia: {
@@ -29,8 +48,10 @@ module.exports = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     },
     basedMainnet: {
-      url: process.env.BASED_MAINNET_RPC || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+      url: process.env.BASED_MAINNET_RPC || "https://mainnet.basedaibridge.com/rpc/",
+      chainId: 32323,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      timeout: 60000
     }
   },
   gasReporter: {
@@ -38,6 +59,6 @@ module.exports = {
     currency: "USD"
   },
   etherscan: {
-    apiKey: process.env.EXPLORER_API_KEY
+    apiKey: process.env.ETHERSCAN_API_KEY
   }
 };

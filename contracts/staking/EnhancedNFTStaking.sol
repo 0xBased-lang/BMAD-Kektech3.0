@@ -19,9 +19,9 @@ import "./interfaces/IEnhancedNFTStaking.sol";
  * - Can be computed off-chain without gas cost
  *
  * Gas Savings:
- * - Traditional approach: 10,000 NFTs × 20,000 gas = 200,000,000 gas
- * - Deterministic approach: 10,000 NFTs × 300 gas = 3,000,000 gas
- * - TOTAL SAVINGS: ~197,000,000 gas (~$10,000+ at typical gas prices)
+ * - Traditional approach: 4,200 NFTs × 20,000 gas = 84,000,000 gas
+ * - Deterministic approach: 4,200 NFTs × 300 gas = 1,260,000 gas
+ * - TOTAL SAVINGS: ~82,740,000 gas (~$4,000+ at typical gas prices)
  */
 contract EnhancedNFTStaking is
     ReentrancyGuard,
@@ -90,21 +90,21 @@ contract EnhancedNFTStaking is
      * @dev PURE FUNCTION - No storage reads, no external calls!
      * @dev Gas cost: ~300 gas (vs ~20,000 gas for external metadata lookup)
      *
-     * Rarity Distribution (10,000 NFTs):
-     * - Common (0-6999):     7,000 NFTs (70%) = 1x multiplier
-     * - Uncommon (7000-8499): 1,500 NFTs (15%) = 2x multiplier
-     * - Rare (8500-8999):      500 NFTs (5%)  = 3x multiplier
-     * - Epic (9000-9899):      900 NFTs (9%)  = 4x multiplier
-     * - Legendary (9900-9999): 100 NFTs (1%)  = 5x multiplier
+     * Rarity Distribution (4,200 NFTs):
+     * - Common (0-2939):     2,940 NFTs (70.00%) = 1x multiplier
+     * - Uncommon (2940-3569):  630 NFTs (15.00%) = 2x multiplier
+     * - Rare (3570-3779):      210 NFTs (5.00%)  = 3x multiplier
+     * - Epic (3780-4109):      330 NFTs (7.86%)  = 4x multiplier
+     * - Legendary (4110-4199):  90 NFTs (2.14%)  = 5x multiplier
      */
     function calculateRarity(uint256 tokenId) public pure override returns (RarityTier) {
-        require(tokenId < 10000, "Invalid token ID");
+        require(tokenId < 4200, "Invalid token ID");
 
-        if (tokenId >= 9900) return RarityTier.LEGENDARY;  // 9900-9999: 100 NFTs (1%)
-        if (tokenId >= 9000) return RarityTier.EPIC;       // 9000-9899: 900 NFTs (9%)
-        if (tokenId >= 8500) return RarityTier.RARE;       // 8500-8999: 500 NFTs (5%)
-        if (tokenId >= 7000) return RarityTier.UNCOMMON;   // 7000-8499: 1500 NFTs (15%)
-        return RarityTier.COMMON;                           // 0-6999: 7000 NFTs (70%)
+        if (tokenId >= 4110) return RarityTier.LEGENDARY;  // 4110-4199: 90 NFTs (~2.14%)
+        if (tokenId >= 3780) return RarityTier.EPIC;       // 3780-4109: 330 NFTs (~7.86%)
+        if (tokenId >= 3570) return RarityTier.RARE;       // 3570-3779: 210 NFTs (5%)
+        if (tokenId >= 2940) return RarityTier.UNCOMMON;   // 2940-3569: 630 NFTs (15%)
+        return RarityTier.COMMON;                           // 0-2939: 2940 NFTs (70%)
     }
 
     /**
@@ -162,7 +162,7 @@ contract EnhancedNFTStaking is
      * @param tokenId ID of the NFT to stake
      */
     function _stakeNFT(address owner, uint256 tokenId) internal {
-        require(tokenId < 10000, "Token ID exceeds maximum (9999)");
+        require(tokenId < 4200, "Token ID exceeds maximum (4199)");
         require(nftContract.ownerOf(tokenId) == owner, "Not token owner");
         require(_stakes[tokenId].owner == address(0), "Already staked");
 

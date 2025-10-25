@@ -29,3 +29,28 @@ ignition/deployments/
 *.swp
 *.swo
 *~
+
+# Logs and test results
+*.log
+test-results/
+fork-test-results.log
+hardhat-fork*.log
+complete-deployment.log
+phase*.log
+
+# CodeRabbit reports (temporary)
+coderabbit-*.txt
+
+# Local fork deployments (keep only testnet/mainnet)
+deployments/*-localhost-*.json
+
+# Backup files
+*.bak
+*.backup
+
+# Session/temporary documentation
+*TEMP*.md
+*WIP*.md
+
+# Archive (will be moved to docs/archive/)
+# docs/archive/

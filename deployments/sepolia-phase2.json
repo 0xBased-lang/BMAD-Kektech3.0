@@ -1,0 +1,23 @@
+{
+  "phase": 2,
+  "network": "sepolia",
+  "chainId": "11155111",
+  "timestamp": "2025-10-24T17:28:04.004Z",
+  "deployer": "0x25fD72154857Bd204345808a690d51a61A81EB0b",
+  "treasury": "0x25fD72154857Bd204345808a690d51a61A81EB0b",
+  "phase1Contracts": {
+    "basedToken": "0x6075c7BEe90B1146dFC2F92ddaCefa4fe9A46A84",
+    "nft": "0xf1937b66DA7403bEdb59E0cE53C96B674DCd6bDd",
+    "staking": "0x420687494Dad8da9d058e9399cD401Deca17f6bd",
+    "bondManager": "0x188830810E01EDFBAe040D902BD445CfFDCe1BD8",
+    "governance": "0xEbF0b8A1E6961d2F2bbBaf43851B1Cbc9376847b",
+    "treasury": "0x25fD72154857Bd204345808a690d51a61A81EB0b"
+  },
+  "contracts": {
+    "techToken": "0x6bB4ef76E93279cD36E7239b06b03ffF90c59dAA",
+    "timelock": "0xA6305eafb8c62b6e9AaeEc5751456138DEC2EA8c",
+    "referenceMarket": "0x91DFC77A746Fe586217e6596ee408cf7E678dBE3",
+    "factory": "0x9d6E570F87648d515c91bb24818d983Ca0957d7a",
+    "rewardDistributor": "0x5AcC0f00c0675975a2c4A54aBcC7826Bd229Ca70"
+  }
+}
