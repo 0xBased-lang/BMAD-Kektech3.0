@@ -30,12 +30,12 @@ describe("EnhancedNFTStaking - Comprehensive Tests", function () {
   const MIN_STAKE_DURATION = 24 * 60 * 60; // 24 hours
   const MAX_BATCH_SIZE = 100;
 
-  // Token IDs for each rarity tier (deterministic!)
-  const COMMON_TOKEN = 5000;       // 0-6999: 1x multiplier
-  const UNCOMMON_TOKEN = 7500;     // 7000-8499: 2x multiplier
-  const RARE_TOKEN = 8700;         // 8500-8999: 3x multiplier
-  const EPIC_TOKEN = 9500;         // 9000-9899: 4x multiplier
-  const LEGENDARY_TOKEN = 9950;    // 9900-9999: 5x multiplier
+  // Token IDs for each rarity tier (deterministic!) - FIXED: Match actual contract ranges (4,200 NFTs total)
+  const COMMON_TOKEN = 1000;       // 0-2939: 2,940 NFTs (70.00%) = 1x multiplier
+  const UNCOMMON_TOKEN = 3000;     // 2940-3569: 630 NFTs (15.00%) = 2x multiplier
+  const RARE_TOKEN = 3600;         // 3570-3779: 210 NFTs (5.00%) = 3x multiplier
+  const EPIC_TOKEN = 3800;         // 3780-4109: 330 NFTs (7.86%) = 4x multiplier
+  const LEGENDARY_TOKEN = 4150;    // 4110-4199: 90 NFTs (2.14%) = 5x multiplier
 
   beforeEach(async function () {
     // Get signers
@@ -48,14 +48,8 @@ describe("EnhancedNFTStaking - Comprehensive Tests", function () {
     // Deploy Mock NFT contract
     nftContract = await deployContract("MockERC721", ["Kektech NFT", "KEKTECH"]);
 
-    // Deploy EnhancedNFTStaking (upgradeable)
-    const StakingFactory = await ethers.getContractFactory("EnhancedNFTStaking");
-    stakingContract = await upgrades.deployProxy(
-      StakingFactory,
-      [await nftContract.getAddress()],
-      { initializer: "initialize", kind: "uups" }
-    );
-    await stakingContract.waitForDeployment();
+    // Deploy EnhancedNFTStaking - FIXED: Not upgradeable, use regular deployment
+    stakingContract = await deployContract("EnhancedNFTStaking", [await nftContract.getAddress()]);
 
     // Mint test NFTs to alice for testing
     await nftContract.mint(alice.address, COMMON_TOKEN);
@@ -181,8 +175,8 @@ describe("EnhancedNFTStaking - Comprehensive Tests", function () {
 
   describe("Batch Staking (Fix #9: MAX_BATCH_SIZE = 100)", function () {
     beforeEach(async function () {
-      // Mint additional NFTs for batch testing
-      const tokenIds = Array.from({ length: 10 }, (_, i) => 1000 + i);
+      // Mint additional NFTs for batch testing - FIXED: Use different token IDs to avoid conflicts with already minted tokens
+      const tokenIds = Array.from({ length: 10 }, (_, i) => 500 + i); // Use 500-509 instead of 1000-1009
       await nftContract.batchMint(alice.address, tokenIds);
     });
 
@@ -431,17 +425,17 @@ describe("EnhancedNFTStaking - Comprehensive Tests", function () {
 
     it("should revert when calculating rarity for invalid token ID", async function () {
       await expect(
-        stakingContract.calculateRarity(10000) // Max is 9999
+        stakingContract.calculateRarity(4200) // Max is 4199
       ).to.be.revertedWith("Invalid token ID");
     });
 
-    it("should revert when staking token ID >= 10000 with clear error message", async function () {
+    it("should revert when staking token ID >= 4200 with clear error message", async function () {
       // Mint an invalid token ID (improvement test)
-      await nftContract.mint(alice.address, 10000);
+      await nftContract.mint(alice.address, 4200);
 
       await expect(
-        stakingContract.connect(alice).stakeNFT(10000)
-      ).to.be.revertedWith("Token ID exceeds maximum (9999)");
+        stakingContract.connect(alice).stakeNFT(4200)
+      ).to.be.revertedWith("Token ID exceeds maximum (4199)");
     });
   });
 

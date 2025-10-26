@@ -41,13 +41,8 @@ describe("Epic 6: Governance System (Fix #7)", function () {
     // Deploy MockERC721 for staking
     mockNFT = await deployContract("MockERC721", ["Test NFT", "TNFT"]);
 
-    // Deploy EnhancedNFTStaking (upgradeable)
-    const EnhancedNFTStaking = await ethers.getContractFactory("EnhancedNFTStaking");
-    stakingContract = await upgrades.deployProxy(
-      EnhancedNFTStaking,
-      [await mockNFT.getAddress()],
-      { initializer: "initialize" }
-    );
+    // Deploy EnhancedNFTStaking - FIXED: Not upgradeable, use regular deployment
+    stakingContract = await deployContract("EnhancedNFTStaking", [await mockNFT.getAddress()]);
 
     // Deploy BondManager
     bondManager = await deployContract("BondManager", [
@@ -92,23 +87,23 @@ describe("Epic 6: Governance System (Fix #7)", function () {
     await basedToken.connect(charlie).approve(await bondManager.getAddress(), ethers.MaxUint256);
 
     // Mint NFTs for voting power testing
-    // Rarity ranges: LEGENDARY: 9900-9999, EPIC: 9000-9899, RARE: 8500-8999, UNCOMMON: 7000-8499, COMMON: 0-6999
-    // Alice: 1 Legendary (ID 9900), 2 Epic (IDs 9000-9001), 1 Common (ID 100)
-    await mockNFT.mint(alice.address, 9900); // Legendary
-    await mockNFT.mint(alice.address, 9000); // Epic
-    await mockNFT.mint(alice.address, 9001); // Epic
-    await mockNFT.mint(alice.address, 100); // Common
+    // FIXED: Rarity ranges (4,200 NFTs total): LEGENDARY: 4110-4199, EPIC: 3780-4109, RARE: 3570-3779, UNCOMMON: 2940-3569, COMMON: 0-2939
+    // Alice: 1 Legendary (ID 4110), 2 Epic (IDs 3780-3781), 1 Common (ID 100)
+    await mockNFT.mint(alice.address, 4110); // Legendary (5x multiplier)
+    await mockNFT.mint(alice.address, 3780); // Epic (4x multiplier)
+    await mockNFT.mint(alice.address, 3781); // Epic (4x multiplier)
+    await mockNFT.mint(alice.address, 100); // Common (1x multiplier)
 
-    // Bob: 1 Epic (ID 9002), 1 Rare (ID 8500)
-    await mockNFT.mint(bob.address, 9002); // Epic
-    await mockNFT.mint(bob.address, 8500); // Rare
+    // Bob: 1 Epic (ID 3782), 1 Rare (ID 3570)
+    await mockNFT.mint(bob.address, 3782); // Epic (4x multiplier)
+    await mockNFT.mint(bob.address, 3570); // Rare (3x multiplier)
 
     // Approve and stake NFTs
     await mockNFT.connect(alice).setApprovalForAll(await stakingContract.getAddress(), true);
     await mockNFT.connect(bob).setApprovalForAll(await stakingContract.getAddress(), true);
 
-    await stakingContract.connect(alice).batchStakeNFTs([9900, 9000, 9001, 100]);
-    await stakingContract.connect(bob).batchStakeNFTs([9002, 8500]);
+    await stakingContract.connect(alice).batchStakeNFTs([4110, 3780, 3781, 100]);
+    await stakingContract.connect(bob).batchStakeNFTs([3782, 3570]);
   });
 
   /*//////////////////////////////////////////////////////////////
