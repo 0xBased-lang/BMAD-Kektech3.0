@@ -294,30 +294,30 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     });
 
     it("2.1 Should track market participation for reward eligibility", async function() {
-      // Place bet in market
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("1000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("1000"));
+      // Place bet in market (use user2, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("1000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1000"));
 
       // Verify bet was placed (participation tracked)
-      const userBets = await market.getUserBetCount(user1.address);
+      const userBets = await market.getUserBetCount(user2.address);
       expect(userBets).to.equal(1);
     });
 
     it("2.2 Should accumulate volume for reward calculations", async function() {
-      // Multiple bets to accumulate volume
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("5000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("1000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("2000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("2000"));
+      // Multiple bets to accumulate volume (use user2, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("5000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("2000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("2000"));
 
       const totalVolume = await market.totalVolume();
       expect(totalVolume).to.equal(ethers.parseEther("5000"));
     });
 
     it("2.3 Should track fees generated for platform rewards", async function() {
-      // Place bet that generates fees
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("10000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("10000"));
+      // Place bet that generates fees (use user2, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("10000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("10000"));
 
       const platformFees = await market.claimablePlatformFees();
       expect(platformFees).to.be.greaterThan(0);
@@ -333,24 +333,24 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     });
 
     it("2.5 Should handle multiple users betting for reward pool", async function() {
-      // Multiple users bet
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("1000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("1000"));
+      // Multiple users bet (user1 is creator, so use user2 and user3)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("1000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1000"));
 
-      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("2000"));
-      await market.connect(user2).placeBet(1, ethers.parseEther("2000"));
+      await basedToken.connect(user3).approve(await market.getAddress(), ethers.parseEther("2000"));
+      await market.connect(user3).placeBet(1, ethers.parseEther("2000"));
 
-      await basedToken.connect(user3).approve(await market.getAddress(), ethers.parseEther("1500"));
-      await market.connect(user3).placeBet(0, ethers.parseEther("1500"));
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("1500"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1500"));
 
       const totalVolume = await market.totalVolume();
       expect(totalVolume).to.equal(ethers.parseEther("4500"));
     });
 
     it("2.6 Should track market resolution for reward finalization", async function() {
-      // Place bets
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("1000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("1000"));
+      // Place bets (use user2, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("1000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1000"));
 
       // Move to resolution time
       const resolutionTime = await market.resolutionTime();
@@ -364,12 +364,12 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     });
 
     it("2.7 Should handle winner rewards after market resolution", async function() {
-      // Place bets on both outcomes
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("10000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("10000"));
+      // Place bets on both outcomes (use user2 and user3, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("10000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("10000"));
 
-      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("5000"));
-      await market.connect(user2).placeBet(1, ethers.parseEther("5000"));
+      await basedToken.connect(user3).approve(await market.getAddress(), ethers.parseEther("5000"));
+      await market.connect(user3).placeBet(1, ethers.parseEther("5000"));
 
       // Resolve market
       const resolutionTime = await market.resolutionTime();
@@ -381,7 +381,7 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       await market.connect(resolver).finalizeResolution();
 
       // Winner can claim
-      const claimable = await market.calculateWinnings(user1.address);
+      const claimable = await market.calculateWinnings(user2.address);
       expect(claimable).to.be.greaterThan(0);
     });
 
@@ -403,9 +403,9 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     });
 
     it("2.9 Should accumulate platform fees across all markets", async function() {
-      // Bet in first market
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("10000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("10000"));
+      // Bet in first market (use user2, not creator user1)
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("10000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("10000"));
 
       const fees1 = await market.claimablePlatformFees();
 
@@ -435,9 +435,9 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
     });
 
     it("2.10 Should handle refunds when minimum volume not met", async function() {
-      // Place small bet (below 10,000 BASED minimum)
-      await basedToken.connect(user1).approve(await market.getAddress(), ethers.parseEther("1000"));
-      await market.connect(user1).placeBet(0, ethers.parseEther("1000"));
+      // Place small bet (below 10,000 BASED minimum) - use user2, not creator user1
+      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("1000"));
+      await market.connect(user2).placeBet(0, ethers.parseEther("1000"));
 
       // Move to resolution time
       const resolutionTime = await market.resolutionTime();
@@ -1012,9 +1012,9 @@ describe("🎯 Integration Bulletproof Edge Cases", function() {
       const afterBetBalance = await basedToken.balanceOf(user1.address);
       expect(initialUser1Balance - afterBetBalance).to.equal(betAmount);
 
-      // User2 bets on opposite outcome
-      await basedToken.connect(user2).approve(await market.getAddress(), ethers.parseEther("20000"));
-      await market.connect(user2).placeBet(1, ethers.parseEther("20000"));
+      // User3 bets on opposite outcome (user2 is creator, can't bet)
+      await basedToken.connect(user3).approve(await market.getAddress(), ethers.parseEther("20000"));
+      await market.connect(user3).placeBet(1, ethers.parseEther("20000"));
 
       // Resolve in user1's favor
       const resolutionTime = await market.resolutionTime();
