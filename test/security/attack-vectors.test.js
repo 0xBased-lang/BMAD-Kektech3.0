@@ -87,16 +87,16 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       const marketAddress = receipt.logs[0].address;
       market = await ethers.getContractAt("PredictionMarket", marketAddress);
 
-      // Place bets
+      // Place bets - FIXED: Need >=10,000 BASED for MINIMUM_VOLUME
       await basedToken.connect(attacker).approve(marketAddress, ethers.MaxUint256);
-      await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
+      await market.connect(attacker).placeBet(0, ethers.parseEther("15000"));
 
       // Resolve market
       const resolutionTime = await market.resolutionTime();
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Try to claim - should work first time
       await expect(
@@ -171,8 +171,11 @@ describe("Critical Attack Vectors - Advanced Security", function () {
 
       expect(victimBets.length).to.be.gt(0);
       expect(attackerBets.length).to.be.gt(0);
-      expect(victimBets[0].amount).to.equal(ethers.parseEther("1000"));
-      expect(attackerBets[0].amount).to.equal(ethers.parseEther("1000000"));
+      // FIXED: Account for fees including volume-based additional fee
+      // Victim: 1.5% fee (1000 * 0.985 = 985)
+      // Attacker: 1.51% fee (volume is 1000, so +1 bps additional)
+      expect(victimBets[0].amount).to.equal(ethers.parseEther("985")); // 1000 * 0.985
+      expect(attackerBets[0].amount).to.equal(ethers.parseEther("984900")); // 1000000 * 0.9849
     });
 
     it("should prevent resolution front-running", async function () {
@@ -365,16 +368,20 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       const marketAddress = receipt.logs[0].address;
       market = await ethers.getContractAt("PredictionMarket", marketAddress);
 
-      // Place tiny bet
+      // Place tiny bet - FIXED: Add victim bet to meet MINIMUM_VOLUME
       await basedToken.connect(attacker).approve(marketAddress, ethers.MaxUint256);
       await market.connect(attacker).placeBet(0, ethers.parseEther("0.001"));
+
+      // Add victim bet to meet minimum volume for finalization
+      await basedToken.connect(victim).approve(marketAddress, ethers.MaxUint256);
+      await market.connect(victim).placeBet(1, ethers.parseEther("15000"));
 
       // Resolve
       const resolutionTime = await market.resolutionTime();
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Should not underflow
       await expect(
@@ -407,17 +414,17 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       await basedToken.connect(attacker).approve(marketAddress, ethers.MaxUint256);
       await basedToken.connect(victim).approve(marketAddress, ethers.MaxUint256);
 
-      // Attacker bets on losing outcome
-      await market.connect(attacker).placeBet(1, ethers.parseEther("100"));
+      // Attacker bets on losing outcome - FIXED: Increase to meet MINIMUM_VOLUME
+      await market.connect(attacker).placeBet(1, ethers.parseEther("6000"));
       // Victim bets on winning outcome
-      await market.connect(victim).placeBet(0, ethers.parseEther("100"));
+      await market.connect(victim).placeBet(0, ethers.parseEther("6000"));
 
       // Resolve to outcome 0
       const resolutionTime = await market.resolutionTime();
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Attacker should get nothing (bet on wrong outcome)
       const attackerBalanceBefore = await basedToken.balanceOf(attacker.address);
@@ -492,7 +499,7 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Should handle gracefully (refund scenario)
       const state = await market.state();
@@ -585,8 +592,9 @@ describe("Critical Attack Vectors - Advanced Security", function () {
 
       expect(aliceBets.length).to.equal(1);
       expect(bobBets.length).to.equal(1);
-      expect(aliceBets[0].amount).to.equal(ethers.parseEther("100"));
-      expect(bobBets[0].amount).to.equal(ethers.parseEther("100"));
+      // FIXED: Account for 1.5% total fees
+      expect(aliceBets[0].amount).to.equal(ethers.parseEther("98.5")); // 100 * 0.985
+      expect(bobBets[0].amount).to.equal(ethers.parseEther("98.5")); // 100 * 0.985
     });
 
     it("should prevent race conditions in claims", async function () {
@@ -608,16 +616,16 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       await basedToken.connect(alice).approve(marketAddress, ethers.MaxUint256);
       await basedToken.connect(bob).approve(marketAddress, ethers.MaxUint256);
 
-      // Both bet on winning outcome
-      await market.connect(alice).placeBet(0, ethers.parseEther("100"));
-      await market.connect(bob).placeBet(0, ethers.parseEther("100"));
+      // Both bet on winning outcome - FIXED: Increase to meet MINIMUM_VOLUME
+      await market.connect(alice).placeBet(0, ethers.parseEther("6000"));
+      await market.connect(bob).placeBet(0, ethers.parseEther("6000"));
 
       // Resolve
       const resolutionTime = await market.resolutionTime();
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Both should be able to claim
       await expect(
@@ -685,7 +693,8 @@ describe("Critical Attack Vectors - Advanced Security", function () {
       for (const bet of attackerBets) {
         totalBetAmount += bet.amount;
       }
-      expect(totalBetAmount).to.equal(ethers.parseEther("10"));
+      // FIXED: Account for 1.5% total fees on each bet
+      expect(totalBetAmount).to.equal(ethers.parseEther("9.85")); // 10 * 0.985
     });
   });
 });

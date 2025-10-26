@@ -278,8 +278,9 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     });
 
     it("should prevent double claiming", async function () {
-      await market.connect(attacker).placeBet(0, ethers.parseEther("100"));
-      await market.connect(victim).placeBet(1, ethers.parseEther("100"));
+      // FIXED: Increase bet amounts to meet MINIMUM_VOLUME
+      await market.connect(attacker).placeBet(0, ethers.parseEther("6000"));
+      await market.connect(victim).placeBet(1, ethers.parseEther("6000"));
 
       // Wait until resolutionTime to propose
       const resolutionTime = await market.resolutionTime();
@@ -288,7 +289,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
       // Wait for finalization delay (PROPOSAL_DELAY = 48 hours)
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // First claim should work
       await expect(
@@ -356,7 +357,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
       // Wait for finalization delay (PROPOSAL_DELAY = 48 hours)
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Market should refund due to low volume (if MINIMUM_VOLUME is implemented)
       const state = await market.state();
@@ -428,13 +429,13 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
 
       // Try to finalize immediately - should fail
       await expect(
-        market.finalizeResolution()
+        market.connect(deployer).finalizeResolution() // FIXED: Added .connect(deployer)
       ).to.be.reverted;
 
       // After proposal delay (172800 seconds = 48 hours) - should work
       await time.increase(172800);
       await expect(
-        market.finalizeResolution()
+        market.connect(deployer).finalizeResolution() // FIXED: Added .connect(deployer)
       ).to.not.be.reverted;
     });
   });
@@ -475,7 +476,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Even tiny bettor should get winnings (multiply before divide)
       const balanceBefore = await basedToken.balanceOf(attacker.address);
@@ -497,7 +498,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await time.increaseTo(resolutionTime);
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
-      await market.finalizeResolution();
+      await market.connect(deployer).finalizeResolution(); // FIXED: Added .connect(deployer)
 
       // Both should be able to claim
       await expect(
@@ -649,7 +650,7 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       // Should work after proposal delay (172800 seconds = 48 hours)
       await time.increase(172800);
       await expect(
-        market.finalizeResolution()
+        market.connect(deployer).finalizeResolution() // FIXED: Added .connect(deployer)
       ).to.not.be.reverted;
     });
   });
