@@ -116,10 +116,12 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
       await market.connect(deployer).proposeResolution(0);
       await time.increase(172800);
 
-      // Should handle zero volume appropriately
-      // Market should either refund or handle gracefully
+      // FIXED: Need to finalize to transition state
+      await market.connect(deployer).finalizeResolution();
+
+      // Should handle zero volume appropriately - should go to REFUNDING (state 3)
       const state = await market.state();
-      expect(state).to.be.oneOf([2, 3, 4]); // PROPOSED, RESOLVED, or REFUNDING
+      expect(state).to.equal(3); // REFUNDING (because totalVolume < MINIMUM_VOLUME)
     });
   });
 
@@ -261,8 +263,9 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
     });
 
     it("should prevent betting after market ends", async function () {
+      // FIXED: Account for 5-minute GRACE_PERIOD after endTime
       const endTime = await market.endTime();
-      await time.increaseTo(endTime + BigInt(1));
+      await time.increaseTo(endTime + BigInt(301)); // 5 minutes + 1 second
 
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
@@ -394,9 +397,10 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.not.be.reverted;
 
-      // After end - should fail
+      // After grace period end - should fail
+      // FIXED: Account for 5-minute GRACE_PERIOD after endTime
       const endTime = await market.endTime();
-      await time.increaseTo(endTime + BigInt(1));
+      await time.increaseTo(endTime + BigInt(301)); // 5 minutes + 1 second
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.be.reverted;
@@ -617,8 +621,9 @@ describe("Security & Edge Cases - Bulletproof Testing", function () {
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.not.be.reverted;
 
-      // Should fail after end time
-      await time.increase(2); // Move past endTime
+      // Should fail after grace period ends
+      // FIXED: Account for 5-minute GRACE_PERIOD after endTime
+      await time.increase(302); // Move past endTime + GRACE_PERIOD (5 minutes + 1 second)
       await expect(
         market.connect(attacker).placeBet(0, ethers.parseEther("100"))
       ).to.be.reverted;
